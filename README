@@ -1,0 +1,37 @@
+ExceptionHandler
+================
+
+This plugin saves exception logs on a filesystem.  Later, a rake task
+can be run to summarize the logs for a given day and email them to the
+admins.
+
+This plugin is loosely derived from the excepiton_notification plugin.
+
+
+Example
+=======
+
+  # app/controller/application.rb
+
+  class Application
+    saves_exceptions
+      # use this host name in the error dump
+      :hostname => 'web_server',
+
+      # save exceptions under an NFS-mounted common directory in /mnt/exceptions
+      :exceptions_dir => '/mnt/exceptions',
+
+      # These excepitons won't be saved
+      :except => ['ActiveRecord::RecordNotFound', 'ActionController::RoutingError'],
+
+      # use this block to determine if we should log the error
+      :log_when => lambda {|ex| not (ex.is_a?(ActiveRecord::RecordNotFound) and request_is_from_search_engine?)}
+  end
+
+
+Add the following cron entry to email reports:
+
+  0 0 * * * cd $RAILS_ROOT ; rake generate_exception_report mail_to=admin@my_domain.com
+
+
+Copyright (c) 2008 released under the MIT license
