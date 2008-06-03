@@ -4,6 +4,8 @@ require 'fileutils'
 require 'action_controller/test_process'
 require 'mocha'
 
+ENV['TEMP'] ||= '/tmp' if File.directory?('/tmp')
+
 class ExceptionHandlerTest < Test::Unit::TestCase
 
 
