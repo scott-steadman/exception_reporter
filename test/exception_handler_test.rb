@@ -4,12 +4,9 @@ require 'fileutils'
 require 'action_controller/test_process'
 require 'mocha'
 
-ENV['TEMP'] ||= '/tmp' if File.directory?('/tmp')
-
 class ExceptionHandlerTest < Test::Unit::TestCase
 
-
-  EXCEPTIONS_DIR = (ENV['TEMP'] || ENV['TMP'] || '.') + '/exceptions'
+  EXCEPTIONS_DIR = (ENV['TEMP'] || ENV['TMP'] || '.') + '/tmp/exceptions'
 
   class TestController < ActionController::Base
     ActionController::Routing::Routes.draw{|map| map.raise '/raise', :controller=>'exception_handler_test/test', :action=>'do_raise'}
@@ -96,6 +93,53 @@ class ExceptionHandlerTest < Test::Unit::TestCase
   end
 
 
+  def test_date_default
+    reporter = ExceptionHandler::Reporter.new
+    assert_equal Date.yesterday.strftime('%Y-%m-%d'), reporter.send(:date)
+  end
+
+  def test_date_with_date_option
+    expected = '1994-09-10'
+    reporter = ExceptionHandler::Reporter.new(:date=>expected)
+    assert_equal expected, reporter.send(:date)
+  end
+
+  def test_date_with_minutes_ago_option
+    reporter = ExceptionHandler::Reporter.new(:minutes_ago=>1)
+    assert_equal Date.today.strftime('%Y-%m-%d'), reporter.send(:date)
+  end
+
+
+  def test_time_default
+    reporter = ExceptionHandler::Reporter.new
+    assert_equal '00:00:00', reporter.send(:time)
+  end
+
+  def test_time_with_date_option
+    reporter = ExceptionHandler::Reporter.new(:date=>'ignored')
+    assert_equal '00:00:00', reporter.send(:time)
+  end
+
+  def test_time_with_minutes_ago_option
+    expected = (Time.now - 5.minutes).strftime('%H:%M:00')
+    reporter = ExceptionHandler::Reporter.new(:minutes_ago=>5)
+    assert_equal expected, reporter.send(:time)
+  end
+
+
+  def test_matches_time_true
+    dir, file = exception_dir_and_file(String.new, Time.now - 5.minutes)
+    reporter = ExceptionHandler::Reporter.new(:minutes_ago=>5)
+    assert_equal true, reporter.send(:matches_time?, file)
+  end
+
+  def test_matches_time_false
+    dir, file = exception_dir_and_file(String.new, Time.now - 6.minutes)
+    reporter = ExceptionHandler::Reporter.new(:minutes_ago=>5)
+    assert_equal false, reporter.send(:matches_time?, file)
+  end
+
+
   def test_reporter_no_mail_to
     TestController.saves_exceptions(:exceptions_dir=>EXCEPTIONS_DIR)
     get :do_raise, :ex=>'RuntimeError', :msg=>'test exception'
@@ -113,6 +157,23 @@ class ExceptionHandlerTest < Test::Unit::TestCase
 
     Net::SMTP.any_instance.expects(:start)
     ExceptionHandler::Reporter.run(:mail_to=>'foo@bar.com', :hostname=>'foo', :date=>@today, :controller_class=>TestController)
+  end
+
+  def test_reporter_excludes_files_before_minutes_ago
+    TestController.saves_exceptions(:exceptions_dir=>EXCEPTIONS_DIR)
+    dir, file = exception_dir_and_file(String.new, Time.now - 6.minutes)
+    FileUtils.mkdir_p(dir)
+    FileUtils.touch(dir + file)
+    dir, file = exception_dir_and_file(Hash.new, Time.now - 4.minutes)
+    FileUtils.mkdir_p(dir)
+    FileUtils.touch(dir + file)
+
+    html = ExceptionHandler::Reporter.run(:hostname=>'foo', :minutes_ago=>5, :controller_class=>TestController)
+
+    assert_no_match %r{String}, html
+    assert_match 'Hash', html
+    assert_no_match %r{http://foo/exceptions/String}, html
+    assert_match "http://foo/exceptions/Hash/#{@today}", html
   end
 
 
@@ -133,6 +194,13 @@ private
 
   def dir(name)
     "#{EXCEPTIONS_DIR}/#{name}"
+  end
+
+  def exception_dir_and_file(ex, time=Time.now)
+    [
+      "#{dir(ex.class.to_s.gsub('::', '_'))}/#{time.strftime('%F')}/#{time.strftime('%H')}/" ,
+      "#{time.strftime("%Y-%m-%dT%H:%M:%S")}.#{time.to_i % 1000}.txt"
+    ]
   end
 
 end
