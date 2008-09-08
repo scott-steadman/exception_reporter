@@ -9,7 +9,7 @@ Request information:
 <% if @user_name && @user_email -%>
   * User: <%= @user_name %> <<%= @user_email %>>
 <% end -%>
-  * URL: <%= request.protocol %><%= @host %><%= request.request_uri %>
+  * URL: <%= request.protocol %><%= request.host_with_port %><%= request.request_uri %>
   * Parameters: <%= request.parameters.inspect %>
   * Rails root: <%= @rails_root %>
   * Hostname: <%= @exception_hostname %>

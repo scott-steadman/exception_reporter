@@ -34,6 +34,13 @@ class ReportsExceptionsTest < Test::Unit::TestCase
     assert ActionController::Base.respond_to?(:saves_exceptions), 'ActionController::Base should respond to :saves_exceptions'
   end
 
+  def test_saves_exceptions_with_URL
+    TestController.saves_exceptions(:hostname=>'foo', :exceptions_dir=>EXCEPTIONS_DIR)
+    get :do_raise, :ex=>'Exception', :msg=>'test exception'
+    lines = read_file(Exception).join
+    assert_match 'URL: http://test.host/raise?ex=Exception&msg=test+exception', lines, "URL should be emitted"
+  end
+
   def test_saves_exceptions_with_hostname
     TestController.saves_exceptions(:hostname=>'foo', :exceptions_dir=>EXCEPTIONS_DIR)
     get :do_raise, :ex=>'Exception', :msg=>'test exception'
@@ -94,7 +101,6 @@ class ReportsExceptionsTest < Test::Unit::TestCase
     get :do_raise, :ex=>'RuntimeError', :msg=>'test exception'
     assert_file_not_written(RuntimeError)
   end
-
 
 
 private
