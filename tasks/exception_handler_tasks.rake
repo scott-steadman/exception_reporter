@@ -1,3 +1,4 @@
+require 'reporter'
 require 'rubygems'
 require 'rake'
 

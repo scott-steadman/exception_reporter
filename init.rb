@@ -1,3 +1,3 @@
-require 'exception_handler'
+require 'reports_exceptions'
 
 ActionController::Base.send :extend, ExceptionHandler::ReportsExceptions
